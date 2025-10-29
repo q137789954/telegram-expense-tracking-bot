@@ -21,6 +21,7 @@ interface OperationContext {
   chatTitle?: string | null;
   amount: Decimal;
   actorId?: number;
+  actorName?: string | null;
 }
 
 export interface OperationResult {
@@ -39,6 +40,7 @@ interface ServiceRateUpdateContext {
   chatTitle?: string | null;
   serviceRate: Decimal;
   actorId?: number;
+  actorName?: string | null;
 }
 
 function toDecimal(value: string | null | undefined): Decimal {
@@ -57,6 +59,13 @@ function calculateTotals(amount: Decimal, serviceRate: Decimal) {
   const serviceFee = amount.mul(serviceRate);
   const total = amount.plus(serviceFee);
   return { serviceFee, total };
+}
+
+function formatActorLabel(actorId?: number, actorName?: string | null): string {
+  const trimmedName = actorName?.trim();
+  const displayName = trimmedName && trimmedName.length > 0 ? trimmedName : '未知';
+  const idLabel = actorId != null ? String(actorId) : '未知';
+  return `${displayName}（ID：${idLabel}）`;
 }
 
 async function ensureGroup(
@@ -137,12 +146,12 @@ export async function addPendingAmount(
     const pendingBefore = group.pendingAmount;
     const reserveBefore = group.reserve;
     const spendAmount = context.amount;
+    const actorLabel = formatActorLabel(context.actorId, context.actorName);
     const { serviceFee, total } = calculateTotals(
       spendAmount,
       group.serviceRate,
     );
     let rechargePrincipal = new Decimal(0);
-    let note: string;
 
     if (total.gte(0)) {
       const reserveUsed = Decimal.min(reserveBefore, total);
@@ -151,17 +160,6 @@ export async function addPendingAmount(
 
       group.reserve = reserveBefore.minus(reserveUsed);
       group.pendingAmount = pendingBefore.plus(pendingIncrease);
-
-      const rechargeSummary = `需充值本金 ${rechargePrincipal.toFixed(
-        SCALE,
-      )}，手续费 ${serviceFee.toFixed(SCALE)}，合计 ${total.toFixed(SCALE)}`;
-      const reserveSummary = `使用备用金 ${reserveUsed.toFixed(
-        SCALE,
-      )}，新增待支付 ${pendingIncrease.toFixed(SCALE)}`;
-
-      note = `管理员 ${context.actorId ?? '未知'} 消费 ${spendAmount.toFixed(
-        SCALE,
-      )}（${reserveSummary}；${rechargeSummary}）`;
     } else {
       const credit = total.neg();
       const pendingReduction = Decimal.min(pendingBefore, credit);
@@ -169,21 +167,9 @@ export async function addPendingAmount(
 
       group.pendingAmount = pendingBefore.minus(pendingReduction);
       group.reserve = reserveBefore.plus(reserveIncrease);
-
-      const summaryParts = [
-        `冲减待支付 ${pendingReduction.toFixed(SCALE)}`,
-      ];
-      if (reserveIncrease.gt(0)) {
-        summaryParts.push(`增加备用金 ${reserveIncrease.toFixed(SCALE)}`);
-      }
-      summaryParts.push(`手续费 ${serviceFee.toFixed(SCALE)}`);
-      summaryParts.push(`合计 ${total.toFixed(SCALE)}`);
-
-      const actionLabel = spendAmount.lt(0) ? '调整' : '消费';
-      note = `管理员 ${context.actorId ?? '未知'} ${actionLabel} ${spendAmount.toFixed(
-        SCALE,
-      )}（${summaryParts.join('，')}）`;
     }
+
+    const note = `操作人：${actorLabel}`;
 
     await saveState(tx, group.id, group);
     await recordTransaction(
@@ -219,6 +205,7 @@ export async function reducePendingAmount(
     const appliedToPending = Decimal.min(pendingBefore, payment);
     const pendingAfter = pendingBefore.minus(appliedToPending);
     const overpay = payment.minus(appliedToPending);
+    const actorLabel = formatActorLabel(context.actorId, context.actorName);
 
     group.pendingAmount = pendingAfter;
     if (overpay.gt(0)) {
@@ -231,13 +218,7 @@ export async function reducePendingAmount(
       group,
       'PENDING_REDUCE',
       payment,
-      `管理员 ${context.actorId ?? '未知'} 充值 ${payment.toFixed(
-        SCALE,
-      )}（抵扣待充值 ${appliedToPending.toFixed(
-        SCALE,
-      )}，转入备用金 ${overpay.toFixed(
-        SCALE,
-      )}，剩余待充值 ${pendingAfter.toFixed(SCALE)}）`,
+      `操作人：${actorLabel}`,
     );
 
     return {
@@ -263,6 +244,7 @@ export async function addReserve(
       context.amount,
       group.serviceRate,
     );
+    const actorLabel = formatActorLabel(context.actorId, context.actorName);
 
     if (group.pendingAmount.lessThan(total)) {
       throw new Error('待支付金额不足，无法入账');
@@ -277,9 +259,7 @@ export async function addReserve(
       group,
       'DEPOSIT',
       context.amount,
-      `管理员 ${context.actorId ?? '未知'} 入账（本金 ${context.amount.toFixed(
-        SCALE,
-      )}，扣除待支付 ${total.toFixed(SCALE)}）`,
+      `操作人：${actorLabel}`,
     );
 
     return {
@@ -304,6 +284,7 @@ export async function deductReserve(
     const reserveBefore = group.reserve;
     const usage = context.amount;
     const reserveAfter = reserveBefore.minus(usage);
+    const actorLabel = formatActorLabel(context.actorId, context.actorName);
     let pendingIncrease = new Decimal(0);
     let rechargePrincipal = new Decimal(0);
     let serviceFee = new Decimal(0);
@@ -327,13 +308,7 @@ export async function deductReserve(
       group,
       'DEPOSIT',
       usage,
-      `管理员 ${context.actorId ?? '未知'} 使用 ${usage.toFixed(
-        SCALE,
-      )}（备用金扣减 ${reserveUsed.toFixed(
-        SCALE,
-      )}，新增待充值 ${pendingIncrease.toFixed(
-        SCALE,
-      )}，其中本金 ${rechargePrincipal.toFixed(SCALE)}）`,
+      `操作人：${actorLabel}`,
     );
 
     return {
@@ -365,6 +340,7 @@ export async function updateGroupServiceRate(
     const group = await ensureGroup(tx, context.chatId, context.chatTitle);
     const previousRate = group.serviceRate;
     const nextRate = context.serviceRate;
+    const actorLabel = formatActorLabel(context.actorId, context.actorName);
 
     if (previousRate.eq(nextRate)) {
       return { previousRate, nextRate };
@@ -387,9 +363,7 @@ export async function updateGroupServiceRate(
       group,
       'SERVICE_RATE_UPDATE',
       zero,
-      `管理员 ${context.actorId ?? '未知'} 将服务费率从 ${previousRate.toFixed(
-        SCALE,
-      )} 调整为 ${nextRate.toFixed(SCALE)}`,
+      `操作人：${actorLabel}`,
     );
 
     return { previousRate, nextRate };

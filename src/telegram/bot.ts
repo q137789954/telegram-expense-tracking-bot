@@ -328,6 +328,7 @@ async function tryHandleServiceRateUpdate(
   const chatId = String(ctx.chat.id);
   const chatTitle = 'title' in ctx.chat ? ctx.chat.title ?? null : null;
   const actorId = ctx.from?.id;
+  const actorName = ctx.from ? getUserDisplayName(ctx.from as TelegramUser) : undefined;
 
   let authorized = false;
   try {
@@ -346,6 +347,7 @@ async function tryHandleServiceRateUpdate(
       chatTitle,
       serviceRate: rate,
       actorId,
+      actorName,
     });
 
     const rows: Array<[string, string]> = [
@@ -395,6 +397,7 @@ async function handleCommand(ctx: BotContext, command: ParsedCommand) {
   const chatId = String(chat.id);
   const chatTitle = 'title' in chat ? chat.title ?? undefined : undefined;
   const actorId = from?.id;
+  const actorName = from ? getUserDisplayName(from as TelegramUser) : undefined;
 
   const historyMarkup = buildHistoryMarkup(chatId);
 
@@ -454,6 +457,7 @@ async function handleCommand(ctx: BotContext, command: ParsedCommand) {
           chatTitle,
           amount: command.amount,
           actorId,
+          actorName,
         });
         const reserveBefore = result.state.reserve.minus(result.reserveDelta);
         await sendReply(
@@ -476,6 +480,7 @@ async function handleCommand(ctx: BotContext, command: ParsedCommand) {
           chatTitle,
           amount: command.amount,
           actorId,
+          actorName,
         });
         const reserveBefore = result.state.reserve.minus(result.reserveDelta);
         await sendReply(
@@ -498,6 +503,7 @@ async function handleCommand(ctx: BotContext, command: ParsedCommand) {
           chatTitle,
           amount: command.amount,
           actorId,
+          actorName,
         });
         const reserveBefore = result.state.reserve.minus(result.reserveDelta);
         await sendReply(
