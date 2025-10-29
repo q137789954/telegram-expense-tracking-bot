@@ -562,6 +562,7 @@ export async function startBot() {
         const created = await addGroupOperator({
           chatId,
           userId: targetId,
+          userName: getUserDisplayName(target),
           assignedBy: actorId,
         });
         if (created) {

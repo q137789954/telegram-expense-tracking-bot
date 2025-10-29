@@ -6,6 +6,7 @@ import { groupOperators } from '../db/schema.js';
 interface OperatorContext {
   chatId: string;
   userId: string;
+  userName?: string | null;
   assignedBy?: string | null;
 }
 
@@ -25,6 +26,7 @@ export async function addGroupOperator(context: OperatorContext): Promise<boolea
     .values({
       chatId: context.chatId,
       userId: context.userId,
+      userName: context.userName ?? null,
       assignedBy: context.assignedBy ?? null,
     })
     .onConflictDoNothing()

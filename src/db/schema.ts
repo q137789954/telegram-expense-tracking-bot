@@ -48,6 +48,7 @@ export const groupOperators = pgTable(
     id: serial('id').primaryKey(),
     chatId: text('chat_id').notNull(),
     userId: text('user_id').notNull(),
+    userName: text('user_name'),
     assignedBy: text('assigned_by'),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
