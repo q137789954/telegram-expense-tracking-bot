@@ -61,6 +61,11 @@ function calculateTotals(amount: Decimal, serviceRate: Decimal) {
   return { serviceFee, total };
 }
 
+function formatServiceRateForNote(rate: Decimal): string {
+  const percent = rate.mul(100);
+  return `${percent.toFixed(2)}%`;
+}
+
 function formatActorLabel(actorId?: number, actorName?: string | null): string {
   const trimmedName = actorName?.trim();
   const displayName = trimmedName && trimmedName.length > 0 ? trimmedName : '未知';
@@ -358,12 +363,17 @@ export async function updateGroupServiceRate(
       .where(eq(groupBalances.id, group.id));
 
     const zero = new Decimal(0);
+    const note = [
+      `操作人：${actorLabel}`,
+      `调整前费率：${formatServiceRateForNote(previousRate)}`,
+      `调整后费率：${formatServiceRateForNote(nextRate)}`,
+    ].join('；');
     await recordTransaction(
       tx,
       group,
       'SERVICE_RATE_UPDATE',
       zero,
-      `操作人：${actorLabel}`,
+      note,
     );
 
     return { previousRate, nextRate };
