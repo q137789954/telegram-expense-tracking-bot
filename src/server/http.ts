@@ -136,7 +136,7 @@ export async function startServer() {
         : 50;
 
     // 对 limit 做上限限制，避免一次性查询过多数据。
-    const safeLimit = Math.min(limit, 500);
+    const safeLimit = Math.min(limit, 1000);
 
     const data = await getHistory(chatId, safeLimit);
 
@@ -165,7 +165,7 @@ export async function startServer() {
         ? Number.parseInt(limitParam, 10)
         : 50;
 
-    const safeLimit = Math.min(limit, 500);
+    const safeLimit = Math.min(limit, 1000);
 
     const data = await getHistory(chatId, safeLimit);
 
@@ -202,7 +202,7 @@ export async function startServer() {
         ? Number.parseInt(limitParam, 10)
         : 50;
 
-    const safeLimit = Math.min(limit, 500);
+    const safeLimit = Math.min(limit, 1000);
 
     const data = await getHistory(chatId, safeLimit);
 

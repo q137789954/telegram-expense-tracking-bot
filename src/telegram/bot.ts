@@ -207,7 +207,7 @@ function buildHistoryMarkup(chatId: string): InlineKeyboardMarkup | undefined {
   if (!/^https?:\/\//i.test(env.publicAppUrl)) {
     return undefined;
   }
-  const url = `${env.publicAppUrl}/history/${encodeURIComponent(chatId)}/view`;
+  const url = `${env.publicAppUrl}/history/${encodeURIComponent(chatId)}/view?limit=1000`;
   return Markup.inlineKeyboard([[Markup.button.url('查看历史账单', url)]]).reply_markup;
 }
 
